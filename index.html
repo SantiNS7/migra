@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Diario de Migrañas</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F5F2; --surface: #FFFFFF; --surface2: #F0EDE8;
+    --border: #E5E0D8; --text: #1A1714; --muted: #8C857D;
+    --accent: #C84B31; --accent-l: #F5E8E4;
+    --green: #2D6A4F; --green-l: #E8F4EE;
+    --radius: 12px;
+  }
+  html, body { height: 100%; background: var(--bg); }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text); -webkit-tap-highlight-color: transparent; }
+
+  .app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+  /* HEADER */
+  .header { padding: 40px 24px 16px; }
+  .header h1 { font-family: 'DM Serif Display', serif; font-size: 30px; line-height: 1.1; }
+  .header h1 em { font-style: italic; color: var(--accent); }
+  .header-sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .stats-row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 5px 13px; font-size: 12px; color: var(--muted); }
+  .stat strong { color: var(--text); font-weight: 500; }
+
+  /* TABS */
+  .tabs { display: flex; background: var(--surface); border-top: 1px solid var(--border); padding: 8px 8px 12px; position: sticky; bottom: 0; z-index: 50; }
+  .tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; border: none; background: none; cursor: pointer; border-radius: 10px; font-size: 10px; font-family: 'DM Sans', sans-serif; font-weight: 500; color: var(--muted); letter-spacing: 0.3px; transition: color 0.15s; }
+  .tab.active { color: var(--accent); }
+  .tab-icon { font-size: 22px; line-height: 1; }
+
+  /* CONTENT */
+  .content { flex: 1; padding: 8px 16px 16px; overflow-y: auto; }
+  .hidden { display: none; }
+
+  /* CARD */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .card-title { font-size: 11px; font-weight: 500; letter-spacing: 0.8px; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+
+  /* EPISODE LIST */
+  .ep-item { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid var(--border); cursor: pointer; }
+  .ep-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .ep-badge { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 500; flex-shrink: 0; }
+  .low  { background: #EEF7EE; color: #2D6A4F; }
+  .mid  { background: #FFF8E6; color: #B07B20; }
+  .high { background: var(--accent-l); color: var(--accent); }
+  .ep-info { flex: 1; min-width: 0; }
+  .ep-date { font-size: 13px; font-weight: 500; }
+  .ep-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .ep-tags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 5px; }
+  .tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--surface2); color: var(--muted); }
+  .tag.t { background: var(--accent-l); color: var(--accent); }
+
+  /* FORM */
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  label { font-size: 11px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 7px; }
+  input[type=text], input[type=date], input[type=time], input[type=number], textarea, select {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+    font-size: 15px; font-family: 'DM Sans', sans-serif; background: var(--surface);
+    color: var(--text); outline: none; -webkit-appearance: none; appearance: none;
+    transition: border-color 0.2s;
+  }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  textarea { resize: none; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  .int-display { font-family: 'DM Serif Display', serif; font-size: 36px; color: var(--accent); text-align: center; padding: 4px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+  .range-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  .pills { display: flex; flex-wrap: wrap; gap: 7px; }
+  .pill { padding: 7px 13px; border-radius: 20px; border: 1px solid var(--border); font-size: 13px; background: var(--surface2); cursor: pointer; color: var(--text); font-family: 'DM Sans', sans-serif; transition: all 0.15s; user-select: none; }
+  .pill.on { background: var(--accent-l); border-color: var(--accent); color: var(--accent); }
+
+  .stars { display: flex; gap: 10px; justify-content: center; padding: 6px 0; }
+  .star { font-size: 28px; cursor: pointer; color: #E5E0D8; transition: color 0.15s; user-select: none; }
+  .star.on { color: #F5A623; }
+
+  .btn { width: 100%; padding: 15px; border: none; border-radius: 12px; font-size: 16px; font-family: 'DM Sans', sans-serif; font-weight: 500; cursor: pointer; margin-top: 6px; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-ghost { background: none; border: 1px solid var(--border); color: var(--muted); font-size: 14px; padding: 12px; }
+
+  /* CHARTS — pure CSS/SVG via canvas-free recharts alternative */
+  .bar-chart { display: flex; flex-direction: column; gap: 8px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; }
+  .bar-label { font-size: 12px; color: var(--text); min-width: 110px; }
+  .bar-track { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); border-radius: 4px; opacity: 0.75; transition: width 0.4s; }
+  .bar-count { font-size: 12px; color: var(--muted); width: 20px; text-align: right; }
+
+  .line-chart { position: relative; height: 140px; }
+  .line-chart svg { width: 100%; height: 100%; overflow: visible; }
+
+  /* INSIGHT */
+  .insight { display: flex; gap: 10px; padding: 12px; background: var(--accent-l); border-radius: 10px; margin-bottom: 8px; }
+  .insight:last-child { margin-bottom: 0; }
+  .insight-icon { font-size: 18px; flex-shrink: 0; }
+  .insight-text { font-size: 13px; line-height: 1.45; }
+  .insight-text strong { color: var(--accent); }
+
+  /* MODAL */
+  .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: flex-end; backdrop-filter: blur(3px); }
+  .overlay.show { display: flex; }
+  .modal { background: var(--surface); border-radius: 20px 20px 0 0; padding: 20px; width: 100%; max-height: 82vh; overflow-y: auto; position: relative; animation: up 0.25s ease; }
+  @keyframes up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 18px; }
+  .modal-close { position: absolute; top: 18px; right: 18px; width: 30px; height: 30px; border-radius: 50%; background: var(--surface2); border: none; font-size: 15px; cursor: pointer; }
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 22px; margin-bottom: 16px; padding-right: 36px; }
+  .modal-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; gap: 12px; }
+  .modal-row:last-of-type { border-bottom: none; }
+  .modal-key { color: var(--muted); flex-shrink: 0; }
+  .modal-val { font-weight: 500; text-align: right; }
+  .btn-delete { width: 100%; margin-top: 18px; padding: 12px; border: 1px solid #f0d5d0; background: none; color: var(--accent); border-radius: 10px; font-size: 14px; font-family: 'DM Sans', sans-serif; cursor: pointer; }
+
+  /* TOAST */
+  .toast { display: none; position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: var(--green); color: white; padding: 10px 22px; border-radius: 20px; font-size: 14px; font-weight: 500; z-index: 400; white-space: nowrap; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .toast.show { display: block; animation: fadeup 0.2s ease; }
+  @keyframes fadeup { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+  .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+  .empty-icon { font-size: 44px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <h1 id="page-title"><em>Mis</em> migrañas</h1>
+    <div class="header-sub" id="page-sub">Registro personal de episodios</div>
+    <div class="stats-row" id="stats-row"></div>
+  </div>
+
+  <!-- HISTORIAL -->
+  <div class="content" id="page-home">
+    <div class="card">
+      <div class="card-title">Episodios recientes</div>
+      <div id="episode-list"></div>
+    </div>
+  </div>
+
+  <!-- NUEVO -->
+  <div class="content hidden" id="page-new">
+    <div class="card">
+      <div class="field">
+        <label>Fecha y hora de inicio</label>
+        <div class="row2">
+          <input type="date" id="f-date" />
+          <input type="time" id="f-time" value="08:00" />
+        </div>
+      </div>
+      <div class="field">
+        <label>Duración: <span id="dur-label">4</span> horas</label>
+        <input type="number" id="f-dur" min="0.5" max="72" step="0.5" value="4"
+          oninput="document.getElementById('dur-label').textContent=this.value" />
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>Intensidad del dolor</label>
+        <div class="int-display" id="int-display">6</div>
+        <input type="range" id="f-int" min="1" max="10" value="6"
+          oninput="document.getElementById('int-display').textContent=this.value" />
+        <div class="range-labels"><span>Leve</span><span>Moderado</span><span>Severo</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>Desencadenantes</label>
+        <div class="pills" id="triggers-pills"></div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Síntomas</label>
+        <div class="pills" id="symptoms-pills"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field">
+        <label>Medicamento</label>
+        <div class="pills" id="meds-pills"></div>
+      </div>
+      <div class="field hidden" id="effect-field" style="margin-bottom:0">
+        <label>Efectividad</label>
+        <div class="stars" id="stars"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field" style="margin-bottom:0">
+        <label>Notas</label>
+        <textarea id="f-notes" rows="3" placeholder="Contexto, observaciones..."></textarea>
+      </div>
+    </div>
+
+    <button class="btn btn-primary" onclick="saveEpisode()">Guardar episodio</button>
+    <button class="btn btn-ghost" onclick="goTab('home')">Cancelar</button>
+  </div>
+
+  <!-- ESTADÍSTICAS -->
+  <div class="content hidden" id="page-stats">
+    <div id="stats-content"></div>
+  </div>
+
+  <!-- NAV -->
+  <div class="tabs">
+    <button class="tab active" id="tab-home" onclick="goTab('home')">
+      <span class="tab-icon">📋</span>Historial
+    </button>
+    <button class="tab" id="tab-new" onclick="goTab('new')">
+      <span class="tab-icon" style="font-size:26px">＋</span>Registrar
+    </button>
+    <button class="tab" id="tab-stats" onclick="goTab('stats')">
+      <span class="tab-icon">📈</span>Análisis
+    </button>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal-body">
+    <div class="modal-handle"></div>
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="m-title"></div>
+    <div id="m-rows"></div>
+    <button class="btn-delete" id="m-delete">🗑 Eliminar episodio</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────
+const KEY = "migrana_v2";
+const TRIGGERS = ["Estrés","Falta de sueño","Alcohol","Cafeína","Luz intensa","Ruido","Ayuno","Menstruación","Clima","Pantallas","Perfumes","Ejercicio"];
+const SYMPTOMS  = ["Náuseas","Aura visual","Fotosensibilidad","Fonofobia","Vómitos","Mareos","Cuello rígido","Hormigueo"];
+const MEDS      = ["Ibuprofeno","Paracetamol","Sumatriptán","Ergotamina","Naproxeno","Otro"];
+
+let episodes = [];
+let selTriggers = [], selSymptoms = [], selMed = "", medEffect = 3;
+
+function load()  { try { episodes = JSON.parse(localStorage.getItem(KEY)) || []; } catch { episodes = []; } }
+function persist(){ try { localStorage.setItem(KEY, JSON.stringify(episodes)); } catch {} }
+load();
+
+// ── UTILS ─────────────────────────────────────────────
+function fmtDate(d) {
+  return new Date(d + "T12:00:00").toLocaleDateString("es-AR", { weekday:"short", day:"numeric", month:"short" });
+}
+function intClass(i) { return i <= 3 ? "low" : i <= 6 ? "mid" : "high"; }
+function today() { return new Date().toISOString().slice(0,10); }
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+// ── TABS ──────────────────────────────────────────────
+let currentTab = "home";
+function goTab(tab) {
+  ["home","new","stats"].forEach(t => {
+    document.getElementById("page-"+t).classList.toggle("hidden", t !== tab);
+    document.getElementById("tab-"+t).classList.toggle("active", t === tab);
+  });
+  currentTab = tab;
+  const titles = { home: ["<em>Mis</em> migrañas", "Registro personal de episodios"],
+                   new:  ["Nuevo <em>episodio</em>", ""],
+                   stats:["<em>Análisis</em> & patrones", ""] };
+  document.getElementById("page-title").innerHTML = titles[tab][0];
+  document.getElementById("page-sub").textContent = titles[tab][1];
+  document.getElementById("stats-row").style.display = tab === "home" ? "" : "none";
+  if (tab === "home")  renderHome();
+  if (tab === "stats") renderStats();
+  if (tab === "new")   resetForm();
+}
+
+// ── HOME ──────────────────────────────────────────────
+function renderHome() {
+  const thisMonth = episodes.filter(e => e.date.slice(0,7) === today().slice(0,7)).length;
+  const avg = episodes.length ? (episodes.reduce((s,e)=>s+e.intensity,0)/episodes.length).toFixed(1) : "—";
+  document.getElementById("stats-row").innerHTML =
+    `<div class="stat">Este mes: <strong>${thisMonth}</strong></div>
+     <div class="stat">Intensidad media: <strong>${avg}${avg!=="—"?"/10":""}</strong></div>
+     <div class="stat">Total: <strong>${episodes.length}</strong></div>`;
+
+  const list = document.getElementById("episode-list");
+  if (!episodes.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">🗒️</div>
+      <div class="empty-text">Aún no hay episodios.<br>Tocá <strong>＋ Registrar</strong> para empezar.</div></div>`;
+    return;
+  }
+  list.innerHTML = episodes.map(ep => `
+    <div class="ep-item" onclick="openModal(${ep.id})">
+      <div class="ep-badge ${intClass(ep.intensity)}">${ep.intensity}</div>
+      <div class="ep-info">
+        <div class="ep-date">${fmtDate(ep.date)}</div>
+        <div class="ep-meta">${ep.startTime} · ${ep.duration}h${ep.medication?" · "+ep.medication:""}</div>
+        <div class="ep-tags">
+          ${ep.triggers.slice(0,3).map(t=>`<span class="tag t">${t}</span>`).join("")}
+          ${ep.symptoms.slice(0,2).map(s=>`<span class="tag">${s}</span>`).join("")}
+        </div>
+      </div>
+      <span style="color:var(--muted);font-size:18px">›</span>
+    </div>`).join("");
+}
+
+// ── FORM ──────────────────────────────────────────────
+function resetForm() {
+  selTriggers = []; selSymptoms = []; selMed = ""; medEffect = 3;
+  document.getElementById("f-date").value = today();
+  document.getElementById("f-time").value = "08:00";
+  document.getElementById("f-dur").value  = 4;
+  document.getElementById("f-int").value  = 6;
+  document.getElementById("dur-label").textContent = 4;
+  document.getElementById("int-display").textContent = 6;
+  document.getElementById("f-notes").value = "";
+  renderPills("triggers-pills", TRIGGERS, selTriggers, "triggers");
+  renderPills("symptoms-pills", SYMPTOMS, selSymptoms, "symptoms");
+  renderPills("meds-pills", MEDS, [], "meds");
+  document.getElementById("effect-field").classList.add("hidden");
+  renderStars();
+}
+
+function renderPills(containerId, items, selected, group) {
+  document.getElementById(containerId).innerHTML = items.map(item =>
+    `<div class="pill ${selected.includes(item)?"on":""}" onclick="togglePill('${group}','${item}')">${item}</div>`
+  ).join("");
+}
+
+function togglePill(group, val) {
+  if (group === "triggers") {
+    selTriggers = selTriggers.includes(val) ? selTriggers.filter(x=>x!==val) : [...selTriggers, val];
+    renderPills("triggers-pills", TRIGGERS, selTriggers, "triggers");
+  } else if (group === "symptoms") {
+    selSymptoms = selSymptoms.includes(val) ? selSymptoms.filter(x=>x!==val) : [...selSymptoms, val];
+    renderPills("symptoms-pills", SYMPTOMS, selSymptoms, "symptoms");
+  } else if (group === "meds") {
+    selMed = selMed === val ? "" : val;
+    renderPills("meds-pills", MEDS, selMed ? [selMed] : [], "meds");
+    document.getElementById("effect-field").classList.toggle("hidden", !selMed);
+  }
+}
+
+function renderStars() {
+  document.getElementById("stars").innerHTML = [1,2,3,4,5].map(s =>
+    `<span class="star ${s<=medEffect?"on":""}" onclick="setEffect(${s})">★</span>`
+  ).join("");
+}
+function setEffect(n) { medEffect = n; renderStars(); }
+
+function saveEpisode() {
+  const date = document.getElementById("f-date").value;
+  if (!date) { alert("Seleccioná una fecha"); return; }
+  const ep = {
+    id: Date.now(),
+    date, startTime: document.getElementById("f-time").value,
+    duration: +document.getElementById("f-dur").value,
+    intensity: +document.getElementById("f-int").value,
+    triggers: [...selTriggers], symptoms: [...selSymptoms],
+    medication: selMed, medEffect, notes: document.getElementById("f-notes").value
+  };
+  episodes.unshift(ep);
+  episodes.sort((a,b) => a.date < b.date ? 1 : -1);
+  persist();
+  goTab("home");
+  showToast("✓ Episodio guardado");
+}
+
+// ── MODAL ─────────────────────────────────────────────
+function openModal(id) {
+  const ep = episodes.find(e => e.id === id);
+  if (!ep) return;
+  document.getElementById("m-title").textContent = fmtDate(ep.date);
+  const rows = [
+    ["Inicio", ep.startTime],
+    ["Duración", ep.duration + " horas"],
+    ["Intensidad", ep.intensity + " / 10"],
+    ep.triggers.length ? ["Desencadenantes", ep.triggers.join(", ")] : null,
+    ep.symptoms.length ? ["Síntomas", ep.symptoms.join(", ")] : null,
+    ep.medication ? ["Medicamento", ep.medication] : null,
+    ep.medication ? ["Efectividad", "★".repeat(ep.medEffect) + "☆".repeat(5-ep.medEffect)] : null,
+    ep.notes ? ["Notas", ep.notes] : null,
+  ].filter(Boolean);
+  document.getElementById("m-rows").innerHTML = rows.map(([k,v]) =>
+    `<div class="modal-row"><span class="modal-key">${k}</span><span class="modal-val">${v}</span></div>`
+  ).join("");
+  document.getElementById("m-delete").onclick = () => deleteEpisode(id);
+  document.getElementById("modal-overlay").classList.add("show");
+}
+function closeModal(e) {
+  if (!e || e.target === document.getElementById("modal-overlay")) {
+    document.getElementById("modal-overlay").classList.remove("show");
+  }
+}
+function deleteEpisode(id) {
+  episodes = episodes.filter(e => e.id !== id);
+  persist();
+  closeModal();
+  renderHome();
+  showToast("Episodio eliminado");
+}
+
+// ── STATS ─────────────────────────────────────────────
+function renderStats() {
+  const container = document.getElementById("stats-content");
+  if (episodes.length < 2) {
+    container.innerHTML = `<div class="empty"><div class="empty-icon">📊</div>
+      <div class="empty-text">Registrá al menos 2 episodios<br>para ver estadísticas.</div></div>`;
+    return;
+  }
+
+  // Top triggers
+  const triggerCount = {};
+  episodes.forEach(e => e.triggers.forEach(t => triggerCount[t] = (triggerCount[t]||0)+1));
+  const topTriggers = Object.entries(triggerCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxTrig = topTriggers[0]?.[1] || 1;
+
+  // Avg intensity
+  const avg = (episodes.reduce((s,e)=>s+e.intensity,0)/episodes.length).toFixed(1);
+  const thisMonth = episodes.filter(e=>e.date.slice(0,7)===today().slice(0,7)).length;
+
+  // Line chart (last 10 episodes, reversed for chronological)
+  const recent = [...episodes].reverse().slice(-10);
+  const W = 400, H = 120, PAD = { t:10, r:10, b:20, l:28 };
+  const iW = W - PAD.l - PAD.r, iH = H - PAD.t - PAD.b;
+  const xs = recent.map((_,i) => PAD.l + (i / Math.max(recent.length-1,1)) * iW);
+  const ys = recent.map(e => PAD.t + iH - ((e.intensity-1)/9)*iH);
+  const polyline = xs.map((x,i)=>`${x},${ys[i]}`).join(" ");
+  const dots = recent.map((e,i) =>
+    `<circle cx="${xs[i]}" cy="${ys[i]}" r="4" fill="#C84B31"/>
+     <title>${fmtDate(e.date)}: ${e.intensity}/10</title>`).join("");
+  const yLabels = [1,4,7,10].map(v => {
+    const y = PAD.t + iH - ((v-1)/9)*iH;
+    return `<text x="${PAD.l-4}" y="${y+4}" font-size="9" fill="#8C857D" text-anchor="end">${v}</text>
+            <line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="#E5E0D8" stroke-width="1"/>`;
+  }).join("");
+  const xLabels = recent.filter((_,i)=>i%Math.ceil(recent.length/5)===0 || i===recent.length-1).map((_,i,arr) => {
+    const origIdx = recent.indexOf(arr[i]);
+    return `<text x="${xs[origIdx]}" y="${H}" font-size="9" fill="#8C857D" text-anchor="middle">${recent[origIdx].date.slice(5)}</text>`;
+  }).join("");
+
+  container.innerHTML = `
+    <div class="card">
+      <div class="card-title">Intensidad por episodio</div>
+      <div style="overflow-x:auto">
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px">
+          ${yLabels}
+          <polyline points="${polyline}" fill="none" stroke="#C84B31" stroke-width="2.5" stroke-linejoin="round"/>
+          ${dots}
+          ${xLabels}
+        </svg>
+      </div>
+    </div>
+
+    ${topTriggers.length ? `
+    <div class="card">
+      <div class="card-title">Principales desencadenantes</div>
+      <div class="bar-chart">
+        ${topTriggers.map(([t,c])=>`
+          <div class="bar-row">
+            <div class="bar-label">${t}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${Math.round((c/maxTrig)*100)}%"></div></div>
+            <div class="bar-count">${c}</div>
+          </div>`).join("")}
+      </div>
+    </div>` : ""}
+
+    <div class="card">
+      <div class="card-title">Insights</div>
+      ${topTriggers[0] ? `<div class="insight"><div class="insight-icon">⚡</div>
+        <div class="insight-text">Tu desencadenante más frecuente es <strong>${topTriggers[0][0]}</strong>, presente en ${topTriggers[0][1]} de ${episodes.length} episodios.</div></div>` : ""}
+      <div class="insight"><div class="insight-icon">📊</div>
+        <div class="insight-text">Intensidad promedio: <strong>${avg}/10</strong>. ${+avg>7?"Considerá hablar con tu médico sobre tratamiento preventivo.":"Seguís dentro de un rango manejable."}</div></div>
+      ${thisMonth>0?`<div class="insight"><div class="insight-icon">📅</div>
+        <div class="insight-text">Este mes llevás <strong>${thisMonth} episodio${thisMonth!==1?"s":""}</strong> registrado${thisMonth!==1?"s":""}.</div></div>`:""}
+    </div>
+  `;
+}
+
+// ── INIT ──────────────────────────────────────────────
+renderHome();
+</script>
+</body>
+</html>
