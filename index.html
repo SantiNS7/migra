@@ -127,6 +127,20 @@
   .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
   .empty-icon { font-size: 44px; margin-bottom: 12px; }
   .empty-text { font-size: 14px; line-height: 1.6; }
+  .btn-export { background: none; border: 1px solid var(--border); color: var(--text); font-size: 14px; padding: 13px; margin-top: 4px; }
+
+  @media print {
+    .tabs, .btn-export { display: none !important; }
+    .app { max-width: 100%; }
+    .card { break-inside: avoid; box-shadow: none; border: 1px solid #ddd; }
+    body { background: white; }
+    #page-new, #page-stats { display: none !important; }
+    #page-home { display: block !important; }
+    .print-header { display: block !important; }
+  }
+  .print-header { display: none; padding: 0 0 20px; }
+  .print-header h2 { font-family: 'DM Serif Display', serif; font-size: 24px; }
+  .print-header p { font-size: 13px; color: var(--muted); margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -140,10 +154,15 @@
 
   <!-- HISTORIAL -->
   <div class="content" id="page-home">
+    <div class="print-header">
+      <h2>Diario de Migrañas</h2>
+      <p id="print-date"></p>
+    </div>
     <div class="card">
       <div class="card-title">Episodios recientes</div>
       <div id="episode-list"></div>
     </div>
+    <button class="btn btn-export" onclick="exportPDF()">📄 Exportar informe PDF</button>
   </div>
 
   <!-- NUEVO -->
@@ -174,6 +193,16 @@
     </div>
 
     <div class="card">
+      <div class="field" style="margin-bottom:0">
+        <label>Localización del dolor</label>
+        <div class="pills" id="location-pills"></div>
+        <div class="field hidden" id="location-other-field" style="margin-top:10px;margin-bottom:0">
+          <input type="text" id="f-location-other" placeholder="Describí la localización..." />
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="field">
         <label>Desencadenantes</label>
         <div class="pills" id="triggers-pills"></div>
@@ -188,6 +217,10 @@
       <div class="field">
         <label>Medicamento</label>
         <div class="pills" id="meds-pills"></div>
+      </div>
+      <div class="field hidden" id="dose-field">
+        <label>Dosis</label>
+        <input type="text" id="f-dose" placeholder="Ej: 400mg, 1 comprimido..." />
       </div>
       <div class="field hidden" id="effect-field" style="margin-bottom:0">
         <label>Efectividad</label>
@@ -242,12 +275,13 @@
 <script>
 // ── DATA ──────────────────────────────────────────────
 const KEY = "migrana_v2";
-const TRIGGERS = ["Estrés","Falta de sueño","Alcohol","Cafeína","Luz intensa","Ruido","Ayuno","Menstruación","Clima","Pantallas","Perfumes","Ejercicio"];
+const TRIGGERS  = ["Estrés","Falta de sueño","Alcohol","Cafeína","Luz intensa","Ruido","Ayuno","Menstruación","Clima","Pantallas","Perfumes","Ejercicio"];
 const SYMPTOMS  = ["Náuseas","Aura visual","Fotosensibilidad","Fonofobia","Vómitos","Mareos","Cuello rígido","Hormigueo"];
 const MEDS      = ["Ibuprofeno","Paracetamol","Sumatriptán","Ergotamina","Naproxeno","Otro"];
+const LOCATIONS = ["A — Un lado de la cabeza","B — Toda la cabeza","C — Parte de atrás","D — En el ojo","Otra..."];
 
 let episodes = [];
-let selTriggers = [], selSymptoms = [], selMed = "", medEffect = 3;
+let selTriggers = [], selSymptoms = [], selLocations = [], selMed = "", medEffect = 3;
 
 function load()  { try { episodes = JSON.parse(localStorage.getItem(KEY)) || []; } catch { episodes = []; } }
 function persist(){ try { localStorage.setItem(KEY, JSON.stringify(episodes)); } catch {} }
@@ -316,7 +350,7 @@ function renderHome() {
 
 // ── FORM ──────────────────────────────────────────────
 function resetForm() {
-  selTriggers = []; selSymptoms = []; selMed = ""; medEffect = 3;
+  selTriggers = []; selSymptoms = []; selLocations = []; selMed = ""; medEffect = 3;
   document.getElementById("f-date").value = today();
   document.getElementById("f-time").value = "08:00";
   document.getElementById("f-dur").value  = 4;
@@ -324,6 +358,11 @@ function resetForm() {
   document.getElementById("dur-label").textContent = 4;
   document.getElementById("int-display").textContent = 6;
   document.getElementById("f-notes").value = "";
+  document.getElementById("f-dose").value = "";
+  document.getElementById("f-location-other").value = "";
+  document.getElementById("location-other-field").classList.add("hidden");
+  document.getElementById("dose-field").classList.add("hidden");
+  renderPills("location-pills", LOCATIONS, selLocations, "locations");
   renderPills("triggers-pills", TRIGGERS, selTriggers, "triggers");
   renderPills("symptoms-pills", SYMPTOMS, selSymptoms, "symptoms");
   renderPills("meds-pills", MEDS, [], "meds");
@@ -338,7 +377,11 @@ function renderPills(containerId, items, selected, group) {
 }
 
 function togglePill(group, val) {
-  if (group === "triggers") {
+  if (group === "locations") {
+    selLocations = selLocations.includes(val) ? selLocations.filter(x=>x!==val) : [...selLocations, val];
+    renderPills("location-pills", LOCATIONS, selLocations, "locations");
+    document.getElementById("location-other-field").classList.toggle("hidden", !selLocations.includes("Otra..."));
+  } else if (group === "triggers") {
     selTriggers = selTriggers.includes(val) ? selTriggers.filter(x=>x!==val) : [...selTriggers, val];
     renderPills("triggers-pills", TRIGGERS, selTriggers, "triggers");
   } else if (group === "symptoms") {
@@ -348,6 +391,7 @@ function togglePill(group, val) {
     selMed = selMed === val ? "" : val;
     renderPills("meds-pills", MEDS, selMed ? [selMed] : [], "meds");
     document.getElementById("effect-field").classList.toggle("hidden", !selMed);
+    document.getElementById("dose-field").classList.toggle("hidden", !selMed);
   }
 }
 
@@ -361,13 +405,19 @@ function setEffect(n) { medEffect = n; renderStars(); }
 function saveEpisode() {
   const date = document.getElementById("f-date").value;
   if (!date) { alert("Seleccioná una fecha"); return; }
+  const locationOther = document.getElementById("f-location-other").value;
+  const locations = selLocations.includes("Otra...") && locationOther
+    ? [...selLocations.filter(x=>x!=="Otra..."), "Otra: " + locationOther]
+    : selLocations.filter(x=>x!=="Otra...");
   const ep = {
     id: Date.now(),
     date, startTime: document.getElementById("f-time").value,
     duration: +document.getElementById("f-dur").value,
     intensity: +document.getElementById("f-int").value,
+    locations,
     triggers: [...selTriggers], symptoms: [...selSymptoms],
-    medication: selMed, medEffect, notes: document.getElementById("f-notes").value
+    medication: selMed, dose: document.getElementById("f-dose").value,
+    medEffect, notes: document.getElementById("f-notes").value
   };
   episodes.unshift(ep);
   episodes.sort((a,b) => a.date < b.date ? 1 : -1);
@@ -385,9 +435,10 @@ function openModal(id) {
     ["Inicio", ep.startTime],
     ["Duración", ep.duration + " horas"],
     ["Intensidad", ep.intensity + " / 10"],
+    ep.locations && ep.locations.length ? ["Localización", ep.locations.join(", ")] : null,
     ep.triggers.length ? ["Desencadenantes", ep.triggers.join(", ")] : null,
     ep.symptoms.length ? ["Síntomas", ep.symptoms.join(", ")] : null,
-    ep.medication ? ["Medicamento", ep.medication] : null,
+    ep.medication ? ["Medicamento", ep.medication + (ep.dose ? ` — ${ep.dose}` : "")] : null,
     ep.medication ? ["Efectividad", "★".repeat(ep.medEffect) + "☆".repeat(5-ep.medEffect)] : null,
     ep.notes ? ["Notas", ep.notes] : null,
   ].filter(Boolean);
@@ -485,6 +536,37 @@ function renderStats() {
         <div class="insight-text">Este mes llevás <strong>${thisMonth} episodio${thisMonth!==1?"s":""}</strong> registrado${thisMonth!==1?"s":""}.</div></div>`:""}
     </div>
   `;
+}
+
+// ── EXPORT PDF ────────────────────────────────────────
+function exportPDF() {
+  if (!episodes.length) { alert("No hay episodios para exportar"); return; }
+  const avg = (episodes.reduce((s,e)=>s+e.intensity,0)/episodes.length).toFixed(1);
+  const thisMonth = episodes.filter(e=>e.date.slice(0,7)===today().slice(0,7)).length;
+  document.getElementById("print-date").textContent =
+    `Generado el ${new Date().toLocaleDateString("es-AR", {day:"numeric",month:"long",year:"numeric"})} · ${episodes.length} episodios · Intensidad media: ${avg}/10`;
+
+  // Build full episode list for print
+  const list = document.getElementById("episode-list");
+  const original = list.innerHTML;
+  list.innerHTML = episodes.map(ep => `
+    <div style="padding:12px 0;border-bottom:1px solid #E5E0D8;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+        <strong>${fmtDate(ep.date)} — ${ep.startTime}</strong>
+        <span style="color:#C84B31;font-weight:600">Intensidad: ${ep.intensity}/10</span>
+      </div>
+      <div style="color:#555;line-height:1.6">
+        Duración: ${ep.duration}h
+        ${ep.locations && ep.locations.length ? ` · Localización: ${ep.locations.join(", ")}` : ""}
+        ${ep.triggers.length ? ` · Desencadenantes: ${ep.triggers.join(", ")}` : ""}
+        ${ep.symptoms.length ? ` · Síntomas: ${ep.symptoms.join(", ")}` : ""}
+        ${ep.medication ? ` · Medicamento: ${ep.medication}${ep.dose?" — "+ep.dose:""} (${"★".repeat(ep.medEffect)}${"☆".repeat(5-ep.medEffect)})` : ""}
+        ${ep.notes ? `<br><em>Nota: ${ep.notes}</em>` : ""}
+      </div>
+    </div>`).join("");
+
+  window.print();
+  list.innerHTML = original;
 }
 
 // ── INIT ──────────────────────────────────────────────
