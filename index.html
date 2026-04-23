@@ -338,7 +338,11 @@ function renderHome() {
       <div class="ep-badge ${intClass(ep.intensity)}">${ep.intensity}</div>
       <div class="ep-info">
         <div class="ep-date">${fmtDate(ep.date)}</div>
-        <div class="ep-meta">${ep.startTime} · ${ep.duration}h${ep.medication?" · "+ep.medication:""}</div>
+        <div class="ep-meta">
+  ${ep.startTime} · ${ep.duration}h
+  ${ep.locations && ep.locations.length ? " · " + ep.locations.join(", ") : ""}
+  ${ep.medication ? " · " + ep.medication : ""}
+</div>
         <div class="ep-tags">
           ${ep.triggers.slice(0,3).map(t=>`<span class="tag t">${t}</span>`).join("")}
           ${ep.symptoms.slice(0,2).map(s=>`<span class="tag">${s}</span>`).join("")}
